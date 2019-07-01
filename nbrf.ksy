@@ -54,48 +54,30 @@ types:
           switch-on: binary_type_enums[_index]
           cases:
             'binary_type_enumeration::primitive': member_type_info_additional_info_primitive
-            #'binary_type_enumeration::string': member_type_info_additional_info_string
-            #'binary_type_enumeration::object': member_type_info_additional_info_object
+            'binary_type_enumeration::string': member_type_info_additional_info_empty
+            'binary_type_enumeration::object': member_type_info_additional_info_empty
             #'binary_type_enumeration::system_class': member_type_info_additional_info_system_class
             #'binary_type_enumeration::class': member_type_info_additional_info_class
-            #'binary_type_enumeration::object_array': member_type_info_additional_info_object_array
-            #'binary_type_enumeration::string_array': member_type_info_additional_info_string_array
-            #'binary_type_enumeration::primitive_array': member_type_info_additional_info_primitive_array
-
+            'binary_type_enumeration::object_array': member_type_info_additional_info_empty
+            'binary_type_enumeration::string_array': member_type_info_additional_info_empty
+            'binary_type_enumeration::primitive_array': member_type_info_additional_info_primitive
+        repeat: expr
+        repeat-expr: _parent.class_info.member_count
+  member_type_info_additional_info_empty:
+    seq: []
   member_type_info_additional_info_primitive:
     seq:
-      - id: value
+      - id: primitive_type
         type: u1
         enum: primitive_type_enumeration
-
-  # member_type_info_additional_info_string:
-  #   seq: []
-
-  # member_type_info_additional_info_object:
-  #   seq: []
-
-  #member_type_info_additional_info_system_class:
-
+  member_type_info_additional_info_system_class:
+    seq:
+      - id: class_name
+        type: length_prefixed_string
   #member_type_info_additional_info_class:
-
-  # member_type_info_additional_info_object_array:
-  #   seq: []
-
-  # member_type_info_additional_info_string_array:
-  #   seq: []
-
-  # member_type_info_additional_info_primitive_array:
-  #   seq:
-  #     - PrimitiveTypeEnumeration
-
-    #Primitive PrimitiveTypeEnumeration
-    #String None
-    #Object None
-    #SystemClass String
-    #Class ClassTypeInfo
-    #ObjectArray None
-    #StringArray None
-    #PrimitiveArray PrimitiveTypeEnumeration
+  #  seq:
+  #    - id: class_type_info
+  #      type: class_type_info
 
   record:
     seq:
