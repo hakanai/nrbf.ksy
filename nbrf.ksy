@@ -4,6 +4,7 @@ meta:
   application: .NET
   imports:
     - vlq_base128_le
+    - utf8
 
 doc: |
   .NET binary serialisation format (BinaryFormatter)
@@ -14,7 +15,6 @@ seq:
     repeat: expr
     repeat-expr: 4
 
-
 types:
 
   # 2 Structures
@@ -24,7 +24,7 @@ types:
   # 2.1.1 Common Data Types
 
   # 2.1.1.1 Char
-  # TODO: UTF-8 variable encoded bytes
+  # We will use utf8.ksy
   
   # 2.1.1.2 Double
   # We will use f8
@@ -43,8 +43,9 @@ types:
     seq:
       - id: ticks
         type: b62
-      - id: kind # here be dragons
+      - id: kind
         type: b2
+        doc: here be dragons
     -webide-representation: 'ticks={ticks} kind={kind}'
 
   # 2.1.1.6 LengthPrefixedString
@@ -72,6 +73,45 @@ types:
         type: length_prefixed_string
       - id: library_id
         type: s4
+    -webide-representation: 'type={type_name}, library_id={library_id}'
+
+  # 2.1.2 Enumerations
+  # See enums below
+  
+  # 2.2 Method Invocation Records
+  
+  # 2.2.1 Enumerations
+  # See enums below
+
+  # 2.2.2 Common Structures
+  
+  # 2.2.2.1 ValueWithCode
+  value_with_code:
+    seq:
+      - id: primitive_type_enum
+        type: u1
+        enum: primitive_type_enumeration
+      - id: value
+        if: primitive_type_enum != primitive_type_enumeration::null
+        type:
+          switch-on: primitive_type_enum
+          cases:
+            'primitive_type_enumeration::boolean': u1
+            'primitive_type_enumeration::byte': u1
+            'primitive_type_enumeration::char': utf8
+            'primitive_type_enumeration::decimal': decimal
+            'primitive_type_enumeration::double': f8
+            'primitive_type_enumeration::int16': s2
+            'primitive_type_enumeration::int32': s4
+            'primitive_type_enumeration::int64': s8
+            'primitive_type_enumeration::sbyte': s1
+            'primitive_type_enumeration::single': f4
+            'primitive_type_enumeration::time_span': time_span
+            'primitive_type_enumeration::date_time': date_time
+            'primitive_type_enumeration::uint16': u2
+            'primitive_type_enumeration::uint32': u4
+            'primitive_type_enumeration::uint64': u8
+            'primitive_type_enumeration::string': length_prefixed_string
 
   # 2.3.1.1 ClassInfo
   class_info:
@@ -133,20 +173,7 @@ types:
             'record_type_enumeration::serialized_stream_header': serialization_header_record
             'record_type_enumeration::binary_library': binary_library
             'record_type_enumeration::class_with_members_and_types': class_with_members_and_types
-    -webide-representation: 'type={recordTypeEnum}, payload={payload}'
-
-  # 0x0 (0)
-  serialization_header_record:
-    seq:
-      - id: top_id
-        type: u4
-      - id: header_id
-        type: u4
-      - id: major_version
-        type: u4
-      - id: minor_version
-        type: u4
-    -webide-representation: 'top_id={top_id} header_id={header_id} version={major_version:dec}.{minor_version:dec}'
+    -webide-representation: 'type={record_type_enum}({record_type_enum:dec}), payload={payload}'
 
   # 2.3.2.1 ClassWithMembersAndTypes
   class_with_members_and_types:
@@ -193,17 +220,31 @@ types:
         type: s4
     -webide-representation: 'object_id={object_id} metadata_id={metadata_id}'
     
-  # 0xC (12)
+  # 2.6.1 SerializationHeaderRecord
+  serialization_header_record:
+    seq:
+      - id: top_id
+        type: u4
+      - id: header_id
+        type: u4
+      - id: major_version
+        type: u4
+      - id: minor_version
+        type: u4
+    -webide-representation: 'top_id={top_id} header_id={header_id} version={major_version:dec}.{minor_version:dec}'
+
+  # 2.6.2 BinaryLibrary
   binary_library:
     seq:
       - id: library_id
         type: u4
       - id: library_name
         type: length_prefixed_string
-    -webide-representation: 'id={library_id}, name={library_name}'
+    -webide-representation: 'id={library_id} name={library_name}'
 
 enums:
 
+  # 2.1.2.1 RecordTypeEnumeration
   record_type_enumeration:
     0: serialized_stream_header
     1: class_with_id
@@ -226,6 +267,7 @@ enums:
     21: method_call
     22: method_return
 
+  # 2.1.2.2 BinaryTypeEnumeration
   binary_type_enumeration:
     0: primitive
     1: string
@@ -236,6 +278,7 @@ enums:
     6: string_array
     7: primitive_array
 
+  # 2.1.2.3 PrimitiveTypeEnumeration
   primitive_type_enumeration:
     1: boolean
     2: byte
@@ -256,24 +299,21 @@ enums:
     17: 'null'
     18: string
 
-#   message_flags:
-#     0x00000001: no_args
-#     0x00000002: args_inline
-#     0x00000004: args_is_array
-#     0x00000008: args_in_array
-#     0x00000010: no_context
-#     0x00000020: context_inline
-#     0x00000040: context_in_array
-#     0x00000080: method_signature_in_array
-#     0x00000100: properties_in_array
-#     0x00000200: no_return_value
-#     0x00000400: return_value_void
-#     0x00000800: return_value_inline
-#     0x00001000: return_value_in_array
-#     0x00002000: exception_in_array
-#     0x00008000: generic_method
+  # 2.2.1.1 MessageFlags
+  message_flags:
+    0x00000001: no_args
+    0x00000002: args_inline
+    0x00000004: args_is_array
+    0x00000008: args_in_array
+    0x00000010: no_context
+    0x00000020: context_inline
+    0x00000040: context_in_array
+    0x00000080: method_signature_in_array
+    0x00000100: properties_in_array
+    0x00000200: no_return_value
+    0x00000400: return_value_void
+    0x00000800: return_value_inline
+    0x00001000: return_value_in_array
+    0x00002000: exception_in_array
+    0x00008000: generic_method
 
-
-#   compression_format:
-#     0x0101: none
-#     0x8b1f: something
