@@ -12,10 +12,40 @@ seq:
   - id: records
     type: record
     repeat: expr
-    repeat-expr: 3
+    repeat-expr: 4
 
 
 types:
+
+  # 2 Structures
+  
+  # 2.1 Common Definitions
+  
+  # 2.1.1 Common Data Types
+
+  # 2.1.1.1 Char
+  # TODO: UTF-8 variable encoded bytes
+  
+  # 2.1.1.2 Double
+  # We will use f8
+  
+  # 2.1.1.3 Single
+  # We will use f4
+  
+  # 2.1.1.4 TimeSpan
+  time_span:
+    seq:
+      - id: value
+        type: s8
+
+  # 2.1.1.5 DateTime
+  date_time:
+    seq:
+      - id: ticks
+        type: b62
+      - id: kind # here be dragons
+        type: b2
+    -webide-representation: 'ticks={ticks} kind={kind}'
 
   # 2.1.1.6 LengthPrefixedString
   length_prefixed_string:
@@ -26,6 +56,22 @@ types:
         type: str
         encoding: 'UTF-8'
         size: length.value
+    -webide-representation: '{chars}'
+
+  # 2.1.1.7 Decimal
+  decimal:
+    seq:
+      - id: value
+        type: length_prefixed_string
+    -webide-representation: '{value}'
+
+  # 2.1.1.8 ClassTypeInfo
+  class_type_info:
+    seq:
+      - id: type_name
+        type: length_prefixed_string
+      - id: library_id
+        type: s4
 
   # 2.3.1.1 ClassInfo
   class_info:
@@ -40,6 +86,7 @@ types:
         type: length_prefixed_string
         repeat: expr
         repeat-expr: member_count
+    -webide-representation: 'object_id={object_id}, name={name}'
 
   # 2.3.1.2 MemberTypeInfo
   member_type_info:
@@ -50,35 +97,30 @@ types:
         repeat: expr
         repeat-expr: _parent.class_info.member_count
       - id: additional_infos
-        type:
-          switch-on: binary_type_enums[_index]
-          cases:
-            'binary_type_enumeration::primitive': member_type_info_additional_info_primitive
-            'binary_type_enumeration::string': member_type_info_additional_info_empty
-            'binary_type_enumeration::object': member_type_info_additional_info_empty
-            #'binary_type_enumeration::system_class': member_type_info_additional_info_system_class
-            #'binary_type_enumeration::class': member_type_info_additional_info_class
-            'binary_type_enumeration::object_array': member_type_info_additional_info_empty
-            'binary_type_enumeration::string_array': member_type_info_additional_info_empty
-            'binary_type_enumeration::primitive_array': member_type_info_additional_info_primitive
+        type: member_type_info_additional_info(_index)
         repeat: expr
         repeat-expr: _parent.class_info.member_count
-  member_type_info_additional_info_empty:
-    seq: []
-  member_type_info_additional_info_primitive:
+  member_type_info_additional_info:
+    params:
+      - id: i
+        type: u4
     seq:
       - id: primitive_type
         type: u1
         enum: primitive_type_enumeration
-  member_type_info_additional_info_system_class:
-    seq:
+        if: |
+          binary_type_enum == binary_type_enumeration::primitive or
+          binary_type_enum == binary_type_enumeration::primitive_array
       - id: class_name
         type: length_prefixed_string
-  #member_type_info_additional_info_class:
-  #  seq:
-  #    - id: class_type_info
-  #      type: class_type_info
-
+        if: binary_type_enum == binary_type_enumeration::system_class
+      - id: class_type_info
+        type: class_type_info
+        if: binary_type_enum == binary_type_enumeration::class
+    instances:
+      binary_type_enum:
+        value: _parent.binary_type_enums[i]
+  
   record:
     seq:
       - id: record_type_enum
@@ -91,6 +133,7 @@ types:
             'record_type_enumeration::serialized_stream_header': serialization_header_record
             'record_type_enumeration::binary_library': binary_library
             'record_type_enumeration::class_with_members_and_types': class_with_members_and_types
+    -webide-representation: 'type={recordTypeEnum}, payload={payload}'
 
   # 0x0 (0)
   serialization_header_record:
@@ -103,21 +146,53 @@ types:
         type: u4
       - id: minor_version
         type: u4
+    -webide-representation: 'top_id={top_id} header_id={header_id} version={major_version:dec}.{minor_version:dec}'
 
-  # 0x5 (5)
+  # 2.3.2.1 ClassWithMembersAndTypes
   class_with_members_and_types:
     seq:
       - id: class_info
         type: class_info
       - id: member_type_info
         type: member_type_info
+      - id: library_id
+        type: s4
+    -webide-representation: 'class_info={class_info} library_id={library_id}'
 
-# MemberTypeInfo (variable): A MemberTypeInfo structure that provides information about the
-# Remoting Types of the Members.
-# LibraryId (4 bytes): An INT32 value (as specified in [MS-DTYP] section 2.2.22) that references a
-# BinaryLibrary record by its Library ID. A BinaryLibrary record with the LibraryId MUST appear
-# earlier in the serialization stream.
-  
+  # 2.3.2.2 ClassWithMembers
+  class_with_members:
+    seq:
+      - id: class_info
+        type: class_info
+      - id: library_id
+        type: s4
+    -webide-representation: 'class_info={class_info} library_id={library_id}'
+
+  # 2.3.2.3 SystemClassWithMembersAndTypes
+  system_class_with_members_and_types:
+    seq:
+      - id: class_info
+        type: class_info
+      - id: member_type_info
+        type: member_type_info
+    -webide-representation: 'class_info={class_info}'
+
+  # 2.3.2.4 SystemClassWithMembers
+  system_class_with_members:
+    seq:
+      - id: class_info
+        type: class_info
+    -webide-representation: 'class_info={class_info}'
+
+  # 2.3.2.5 ClassWithId
+  class_with_id:
+    seq:
+      - id: object_id
+        type: s4
+      - id: metadata_id
+        type: s4
+    -webide-representation: 'object_id={object_id} metadata_id={metadata_id}'
+    
   # 0xC (12)
   binary_library:
     seq:
@@ -125,6 +200,7 @@ types:
         type: u4
       - id: library_name
         type: length_prefixed_string
+    -webide-representation: 'id={library_id}, name={library_name}'
 
 enums:
 
